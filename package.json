@@ -16,10 +16,10 @@
   },
   "dependencies": {
     "@cloudant/cloudant": "^2.3.0",
-    "body-parser": "^1.17.x",
-    "cfenv": "^1.0.x",
+    "body-parser": "^1.19.2",
+    "cfenv": "^1.2.4",
     "dotenv": "^4.0.0",
-    "express": "^4.15.x"
+    "express": "^4.17.3"
   },
   "author": "IBM Corp",
   "license": "Apache-2.0"
