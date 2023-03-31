@@ -1,4 +1,4 @@
-FROM node:18.14.1-alpine
+FROM node:18.15-alpine
 
 ADD views /app/views
 ADD package.json /app
