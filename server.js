@@ -26,14 +26,12 @@ app.post("/api/visitors", function (request, response) {
     return;
   }
   // insert the username as a document
-  mydb.insert(doc, function(err, body, header) {
-    if (err) {
-      console.log('[mydb.insert] ', err.message);
-      response.send("Error");
-      return;
-    }
+  mydb.insert(doc).then(function(body) {
     doc._id = body.id;
     response.send(doc);
+  }).catch(function(err) {
+    console.log('[mydb.insert] ', err.message);
+    response.send("Error");
   });
 });
 
@@ -55,14 +53,14 @@ app.get("/api/visitors", function (request, response) {
     return;
   }
 
-  mydb.list({ include_docs: true }, function(err, body) {
-    if (!err) {
-      body.rows.forEach(function(row) {
-        if(row.doc.name)
-          names.push(row.doc.name);
-      });
-      response.json(names);
-    }
+  mydb.list({ include_docs: true }).then(function(body) {
+    body.rows.forEach(function(row) {
+      if(row.doc && row.doc.name)
+        names.push(row.doc.name);
+    });
+    response.json(names);
+  }).catch(function() {
+    response.json(names);
   });
 });
 
@@ -78,32 +76,34 @@ const appEnvOpts = vcapLocal ? { vcap: vcapLocal} : {}
 
 const appEnv = cfenv.getAppEnv(appEnvOpts);
 
-// Load the Cloudant library.
-var Cloudant = require('@cloudant/cloudant');
-if (appEnv.services['cloudantNoSQLDB'] || appEnv.getService(/cloudant/)) {
+var nano = require('nano');
 
-  // Initialize database with credentials
-  if (appEnv.services['cloudantNoSQLDB']) {
-    // CF service named 'cloudantNoSQLDB'
-    cloudant = Cloudant(appEnv.services['cloudantNoSQLDB'][0].credentials);
-  } else {
-     // user-provided service with 'cloudant' in its name
-     cloudant = Cloudant(appEnv.getService(/cloudant/).credentials);
+function cloudantUrlFromCreds(creds) {
+  if (!creds) return null;
+  if (creds.url) return creds.url;
+  if (creds.host && creds.username && creds.password) {
+    return 'https://' + creds.username + ':' + creds.password + '@' + creds.host;
   }
-} else if (process.env.CLOUDANT_URL){
-  cloudant = Cloudant(process.env.CLOUDANT_URL);
+  return null;
 }
-if(cloudant) {
-  //database name
+
+var cloudantUrl = null;
+if (appEnv.services['cloudantNoSQLDB']) {
+  cloudantUrl = cloudantUrlFromCreds(appEnv.services['cloudantNoSQLDB'][0].credentials);
+} else if (appEnv.getService(/cloudant/)) {
+  cloudantUrl = cloudantUrlFromCreds(appEnv.getService(/cloudant/).credentials);
+} else if (process.env.CLOUDANT_URL) {
+  cloudantUrl = process.env.CLOUDANT_URL;
+}
+
+if (cloudantUrl) {
+  cloudant = nano(cloudantUrl);
   var dbName = 'mydb';
-
-  // Create a new "mydb" database.
-  cloudant.db.create(dbName, function(err, data) {
-    if(!err) //err if database doesn't already exists
-      console.log("Created database: " + dbName);
+  cloudant.db.create(dbName).then(function() {
+    console.log("Created database: " + dbName);
+  }).catch(function() {
+    // Database already exists.
   });
-
-  // Specify the database we are going to use (mydb)...
   mydb = cloudant.db.use(dbName);
 }
 
